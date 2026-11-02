@@ -41,7 +41,8 @@ for (const k of L.skus) {
     listing_status: 'ACTIVE',
     shipping_fees: { local: 0, zonal: 0, national: 0, currency: 'INR' },
     fulfillment_profile: 'NON_FBF',
-    fulfillment: { dispatch_sla: 2, procurement_type: 'REGULAR' },
+    // hours: the live ATR-GANESH-LOTUS-LATKAN-4, created with a 2-day SLA in Seller Hub, reads back as 48
+    fulfillment: { dispatch_sla: 48, procurement_type: 'REGULAR' },
     packages: [{ name: 'package-1', dimensions: { length: len, breadth: wid, height: ht }, weight: k.package_weight_g / 1000, description: '', handling: { fragile: false } }],
     locations: [{ id: LOCATION, status: 'ENABLED', inventory: k.quantity }],
   };
