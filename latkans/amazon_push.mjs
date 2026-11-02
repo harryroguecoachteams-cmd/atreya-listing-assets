@@ -160,13 +160,16 @@ async function upload(file) {
   const buf = readFileSync(join(HERE, file));
   const md5 = createHash('md5').update(buf).digest('base64');
   const r = await sp('POST', `/uploads/2020-11-01/uploadDestinations/aplus/2020-11-01/contentDocuments?marketplaceIds=${MP}&contentMD5=${encodeURIComponent(md5)}&contentType=image/jpeg`);
-  const { uploadDestinationId, url, headers = {} } = r.payload;
+  const { uploadDestinationId, url } = r.payload;
+  const headers = r.payload.headers || {};
+  const u = new URL(url);
   let up;
-  if (headers.key || headers.policy || headers.Policy) {               // S3 presigned POST form
+  if (headers.key || headers.policy || headers.Policy || u.searchParams.has('key')) {   // S3 presigned POST form
+    // amazon.in returns headers: null with the form fields in the URL query (same as publish-*-aplus.js)
     const form = new FormData();
-    for (const [hk, hv] of Object.entries(headers)) form.append(hk, hv);
+    for (const [hk, hv] of [...u.searchParams.entries(), ...Object.entries(headers)]) form.append(hk, hv);
     form.append('file', new Blob([buf], { type: 'image/jpeg' }), file.split('/').pop());
-    up = await fetch(url, { method: 'POST', body: form });
+    up = await fetch(`${u.protocol}//${u.host}${u.pathname}`, { method: 'POST', body: form });
   } else {                                                              // presigned PUT
     up = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg', 'Content-MD5': md5, ...headers }, body: buf });
   }
@@ -202,13 +205,22 @@ async function aplus() {
     { contentModuleType: m3.type, standardSingleImageHighlights: {
       image: await image(m3.image, m3.alt), headline: txt(m3.headline),
       textBlock1: { headline: txt(m3.headline), body: para(m3.body) },
-      bulletedListBlock: { headline: txt(m3.bullets_headline), textList: m3.bullets.map((b, i) => ({ position: i + 1, text: txt(b) })) } } },
+      bulletedListBlock: { headline: txt(m3.bullets_headline), block: { textList: m3.bullets.map((b, i) => ({ position: i + 1, text: txt(b) })) } } } },
   ];
   const doc = { contentDocument: { name: L.aplus.name, contentType: 'EBC', locale: 'en-IN', contentModuleList: modules } };
   const v1 = await sp('POST', `/aplus/2020-11-01/contentAsinValidations?marketplaceId=${MP}&asinSet=${asins.join(',')}`, doc);
   for (const e of v1.errors || []) console.log(`  [A+ ${e.code}] ${e.message}`);
   if (!LIVE) { console.log('\nA+ validated only. Run "aplus --live" to create and submit it.'); return; }
-  const { contentReferenceKey } = await sp('POST', `/aplus/2020-11-01/contentDocuments?marketplaceId=${MP}`, doc);
+  // reuse the first draft of the same name, so a re-run (e.g. after a failed submit) never makes a duplicate.
+  // 2 Nov 2026: a re-run made 66317d31-... before this existed; its ASINs were detached, fdd20ce1-... is the one.
+  const list = await sp('GET', `/aplus/2020-11-01/contentDocuments?marketplaceId=${MP}`);
+  const prev = (list.contentMetadataRecords || []).filter((d) => d.contentMetadata?.name === L.aplus.name && d.contentMetadata?.status === 'DRAFT')
+    .find((d) => d.contentReferenceKey === 'fdd20ce1-b9d4-4320-9a2a-dc0853d5596e') || (list.contentMetadataRecords || [])
+    .filter((d) => d.contentMetadata?.name === L.aplus.name && d.contentMetadata?.status === 'DRAFT')
+    .sort((a, b) => String(a.contentMetadata.updateTime).localeCompare(b.contentMetadata.updateTime))[0];
+  let contentReferenceKey = prev?.contentReferenceKey;
+  if (contentReferenceKey) { await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}?marketplaceId=${MP}`, doc); console.log(`  updated existing draft ${contentReferenceKey}`); }
+  else ({ contentReferenceKey } = await sp('POST', `/aplus/2020-11-01/contentDocuments?marketplaceId=${MP}`, doc));
   await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}/asins?marketplaceId=${MP}`, { asinSet: asins });
   await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}/approvalSubmissions?marketplaceId=${MP}`);
   console.log(`A+ ${contentReferenceKey} submitted for ${asins.join(', ')}. Approval usually takes up to 7 days.`);
