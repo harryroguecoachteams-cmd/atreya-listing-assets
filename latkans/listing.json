@@ -37,10 +37,13 @@
     "special_feature": "Ready to Hang, Reusable, With Bells",
     "country_of_origin": "IN",
     "hsn_code": "6702",
-    "hsn_note": "CONFIRM: use the same HSN and GST rate as your existing latkans (ATR-GANESH-LOTUS-LATKAN-4).",
+    "hsn_note": "Confirmed 2 Nov 2026: HSN 6702, same as live ATR-GANESH-LOTUS-LATKAN-4.",
     "strand_length_cm": 86,
     "strand_width_cm": 12.7,
-    "size_note": "From competitors, not measured: 34 inch strand (B0FQ5C63LJ), 12.7 cm wide (related listing), 160 g per pair (CraftVatika B0FP5HC7Z6)."
+    "size_note": "From competitors, not measured: 34 inch strand (B0FQ5C63LJ), 12.7 cm wide (related listing), 160 g per pair (CraftVatika B0FP5HC7Z6).",
+    "item_type_name": "Hanging Ornament",
+    "contact": "Atreya- A/17 Parvesh Nagar, Delhi-110081",
+    "contact_note": "Same packer and manufacturer address as the live ATR-GANESH-LOTUS-LATKAN-4 (B0HJ8P8NBY)."
   },
   "skus": [
     {
@@ -68,7 +71,11 @@
         "other5.jpg",
         "other6.jpg",
         "other7.jpg"
-      ]
+      ],
+      "item_weight_g": 160,
+      "model_number": "Ganesh_LotusBell_Latkan",
+      "part_number": "Ganesh_LotusBell_Latkan_Set2",
+      "size": "86 cm (Pack of 2)"
     },
     {
       "sku": "ATR-GANESH-LOTUSBELL-LATKAN-4",
@@ -96,7 +103,11 @@
         "other6.jpg",
         "other7.jpg",
         "other8.jpg"
-      ]
+      ],
+      "item_weight_g": 320,
+      "model_number": "Ganesh_LotusBell_Latkan",
+      "part_number": "Ganesh_LotusBell_Latkan_Set4",
+      "size": "86 cm (Pack of 4)"
     }
   ],
   "aplus": {
