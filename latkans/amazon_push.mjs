@@ -199,27 +199,27 @@ async function aplus() {
   if (asins.length < L.skus.length) throw new Error('Both SKUs need ASINs first. Run "listings --live", wait 15-30 min, then retry.');
   const [m1, m2, m3] = L.aplus.modules;
   const modules = [
-    { contentModuleType: m1.type, standardHeaderImageText: { headline: txt(m1.headline), block: { image: await image(m1.image, m1.alt), headline: txt(m1.headline), body: para(m1.body) } } },
+    // the module headline is the only heading: a block headline with the same text prints it twice on the page
+    { contentModuleType: m1.type, standardHeaderImageText: { headline: txt(m1.headline), block: { image: await image(m1.image, m1.alt), body: para(m1.body) } } },
     { contentModuleType: m2.type, standardThreeImageText: { headline: txt(m2.headline),
       ...Object.fromEntries(await Promise.all(m2.blocks.map(async (b, i) => [`block${i + 1}`, { image: await image(b.image, b.alt), headline: txt(b.headline), body: para(b.body) }]))) } },
     { contentModuleType: m3.type, standardSingleImageHighlights: {
       image: await image(m3.image, m3.alt), headline: txt(m3.headline),
-      textBlock1: { headline: txt(m3.headline), body: para(m3.body) },
+      textBlock1: { body: para(m3.body) },
       bulletedListBlock: { headline: txt(m3.bullets_headline), block: { textList: m3.bullets.map((b, i) => ({ position: i + 1, text: txt(b) })) } } } },
   ];
   const doc = { contentDocument: { name: L.aplus.name, contentType: 'EBC', locale: 'en-IN', contentModuleList: modules } };
   const v1 = await sp('POST', `/aplus/2020-11-01/contentAsinValidations?marketplaceId=${MP}&asinSet=${asins.join(',')}`, doc);
   for (const e of v1.errors || []) console.log(`  [A+ ${e.code}] ${e.message}`);
   if (!LIVE) { console.log('\nA+ validated only. Run "aplus --live" to create and submit it.'); return; }
-  // reuse the first draft of the same name, so a re-run (e.g. after a failed submit) never makes a duplicate.
+  // update the existing document (any status, approved included) so a re-run never makes a duplicate.
   // 2 Nov 2026: a re-run made 66317d31-... before this existed; its ASINs were detached, fdd20ce1-... is the one.
   const list = await sp('GET', `/aplus/2020-11-01/contentDocuments?marketplaceId=${MP}`);
-  const prev = (list.contentMetadataRecords || []).filter((d) => d.contentMetadata?.name === L.aplus.name && d.contentMetadata?.status === 'DRAFT')
-    .find((d) => d.contentReferenceKey === 'fdd20ce1-b9d4-4320-9a2a-dc0853d5596e') || (list.contentMetadataRecords || [])
-    .filter((d) => d.contentMetadata?.name === L.aplus.name && d.contentMetadata?.status === 'DRAFT')
-    .sort((a, b) => String(a.contentMetadata.updateTime).localeCompare(b.contentMetadata.updateTime))[0];
+  const same = (list.contentMetadataRecords || []).filter((d) => d.contentMetadata?.name === L.aplus.name);
+  const prev = same.find((d) => d.contentReferenceKey === 'fdd20ce1-b9d4-4320-9a2a-dc0853d5596e')
+    || same.sort((a, b) => String(a.contentMetadata.updateTime).localeCompare(b.contentMetadata.updateTime))[0];
   let contentReferenceKey = prev?.contentReferenceKey;
-  if (contentReferenceKey) { await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}?marketplaceId=${MP}`, doc); console.log(`  updated existing draft ${contentReferenceKey}`); }
+  if (contentReferenceKey) { await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}?marketplaceId=${MP}`, doc); console.log(`  updated existing document ${contentReferenceKey} (was ${prev.contentMetadata.status})`); }
   else ({ contentReferenceKey } = await sp('POST', `/aplus/2020-11-01/contentDocuments?marketplaceId=${MP}`, doc));
   await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}/asins?marketplaceId=${MP}`, { asinSet: asins });
   await sp('POST', `/aplus/2020-11-01/contentDocuments/${contentReferenceKey}/approvalSubmissions?marketplaceId=${MP}`);
