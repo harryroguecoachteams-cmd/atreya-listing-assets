@@ -110,6 +110,12 @@
       "size": "86 cm (Pack of 4)"
     }
   ],
+  "variation_parent": {
+    "sku": "ATR-GANESH-LOTUSBELL-LATKAN-PARENT",
+    "title": "Atreya Ganesh Ji Door Latkan for Diwali with Lotus and Bells",
+    "variation_theme": "NUMBER_OF_ITEMS",
+    "note": "Amazon parent (not buyable). Pack of 2 and Pack of 4 are its children, so they show as one listing with a Number of Items selector."
+  },
   "aplus": {
     "name": "Atreya Ganesh Lotus Bell Latkan",
     "modules": [

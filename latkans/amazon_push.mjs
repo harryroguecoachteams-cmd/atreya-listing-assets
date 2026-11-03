@@ -3,6 +3,7 @@
 //
 //   node amazon_push.mjs listings           -> VALIDATION_PREVIEW only, prints Amazon's issues
 //   node amazon_push.mjs listings --live    -> creates the listings
+//   node amazon_push.mjs variations [--live] -> parent SKU + both packs as its children (one listing, Number of Items selector)
 //   node amazon_push.mjs status             -> shows ASIN + status per SKU once Amazon assigns them
 //   node amazon_push.mjs aplus              -> uploads images, creates the A+ draft, validates against the ASINs
 //   node amazon_push.mjs aplus --live       -> same, then attaches ASINs and submits for approval
@@ -143,9 +144,51 @@ async function listings() {
   if (!LIVE) console.log('\nNo errors above? Run again with --live.');
 }
 
+// One listing with a Number of Items selector: a non-buyable parent SKU, the two packs as its children.
+async function variations() {
+  const P = L.variation_parent;
+  const keys = await schemaKeys();
+  const mode = LIVE ? '' : '&mode=VALIDATION_PREVIEW';
+  const theme = [{ name: P.variation_theme, marketplace_id: MP }];
+  const parent = attributesFor(L.skus[0]);
+  for (const a of ['purchasable_offer', 'fulfillment_availability', 'number_of_items', 'unit_count', 'included_components',
+    'item_weight', 'item_package_dimensions', 'item_package_weight', 'size', 'part_number', 'external_product_information'])
+    delete parent[a];
+  Object.keys(parent).filter((a) => /^other_product_image_locator_/.test(a)).forEach((a) => delete parent[a]);
+  Object.keys(parent).filter((a) => !keys.has(a)).forEach((a) => delete parent[a]);
+  Object.assign(parent, {
+    item_name: t(P.title),
+    parentage_level: v('parent'),
+    child_parent_sku_relationship: [{ child_relationship_type: 'variation', marketplace_id: MP }],
+    variation_theme: theme,
+  });
+  const show = (sku, res) => {
+    console.log(`\n${sku}: ${res.status}${LIVE ? '' : ' (validation only)'}`);
+    for (const i of res.issues || []) console.log(`  [${i.severity}] ${i.code} ${i.attributeNames?.join(',') || ''}: ${i.message}`);
+  };
+  show(P.sku, await sp('PUT', `/listings/2021-08-01/items/${SELLER}/${encodeURIComponent(P.sku)}?marketplaceIds=${MP}&issueLocale=en_IN${mode}`,
+    { productType: S.product_type, requirements: 'LISTING', attributes: parent }));
+  // full PUT of each pack (same attributes as `listings`) plus the child fields; a PATCH preview
+  // re-checked required attributes it could not see and failed on them
+  const highlightKey = [...keys].find((a) => /highlight/i.test(a));
+  for (const k of L.skus) {
+    const attrs = attributesFor(k);
+    if (highlightKey) attrs[highlightKey] = t(S.item_highlight);
+    Object.keys(attrs).filter((a) => !keys.has(a)).forEach((a) => delete attrs[a]);
+    Object.assign(attrs, {
+      parentage_level: v('child'),
+      child_parent_sku_relationship: [{ child_relationship_type: 'variation', parent_sku: P.sku, marketplace_id: MP }],
+      variation_theme: theme,
+    });
+    show(k.sku, await sp('PUT', `/listings/2021-08-01/items/${SELLER}/${encodeURIComponent(k.sku)}?marketplaceIds=${MP}&issueLocale=en_IN${mode}`,
+      { productType: S.product_type, requirements: 'LISTING', attributes: attrs }));
+  }
+  if (!LIVE) console.log('\nNo errors above? Run again with --live.');
+}
+
 async function status() {
   const out = {};
-  for (const k of L.skus) {
+  for (const k of [...L.skus, ...(L.variation_parent ? [L.variation_parent] : [])]) {
     const r = await sp('GET', `/listings/2021-08-01/items/${SELLER}/${encodeURIComponent(k.sku)}?marketplaceIds=${MP}&includedData=summaries,issues`);
     const s = r.summaries?.[0];
     out[k.sku] = s?.asin;
@@ -226,6 +269,6 @@ async function aplus() {
   console.log(`A+ ${contentReferenceKey} submitted for ${asins.join(', ')}. Approval usually takes up to 7 days.`);
 }
 
-const run = { listings, status, aplus }[cmd];
+const run = { listings, variations, status, aplus }[cmd];
 if (!run) { console.log('usage: node amazon_push.mjs listings|status|aplus [--live] [--env path]'); process.exit(1); }
 await run();
